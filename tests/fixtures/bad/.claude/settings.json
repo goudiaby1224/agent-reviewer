@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "OnSave": [],
+    "PreToolUse": [{"hooks": [{"type": "command"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "./hooks/missing.sh", "if": "Bash", "once": true}]}]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "a": {
+      "url": "https://example.com/mcp",
+      "headers": {"Authorization": "Bearer abcdefghijklmnopqrstuvwxyz123456"}
+    },
+    "b": {
+      "type": "sse",
+      "url": "https://example.com/sse",
+      "tools": ["*"],
+      "bogus": 1
+    },
+    "c": {
+      "type": "stdio",
+      "env": {"X": "${X}"}
+    },
+    "d": {
+      "type": "stdio",
+      "command": "./bin/missing-server"
+    }
+  }
+}
