@@ -1,0 +1,4 @@
+---
+applyTo: "**/*.py"
+---
+Use spaces.

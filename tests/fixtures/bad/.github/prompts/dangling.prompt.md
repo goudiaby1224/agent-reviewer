@@ -1,0 +1,4 @@
+---
+agent: ghost
+---
+body
