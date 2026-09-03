@@ -1,8 +1,8 @@
 # agent-skill-reviewer — Design Spec
 
 Date: 2026-09-03
-Status: approved design, pending user spec review
-Repo: `/Users/noelgoudiaby/SKILL_AND_AGENT_BUILDER` (becomes the reference repository for the reviewer; not yet a git repository)
+Status: approved design; reconciled with `docs/superpowers/plans/2026-09-03-agent-skill-reviewer.md` on 2026-09-03 (the plan is authoritative where the two differ)
+Repo: `/Users/noelgoudiaby/SKILL_AND_AGENT_BUILDER` (the reference repository for the reviewer; git-initialised)
 
 ## 1. Goal
 
@@ -43,8 +43,10 @@ SKILL_AND_AGENT_BUILDER/
 │   └── skills/                                  # ONE skills tree, read by Copilot AND Claude Code
 │       ├── linting-agent-config-files/
 │       │   ├── SKILL.md
-│       │   ├── references/rule-catalogue.md     # every rule ID, severity, source
-│       │   └── scripts/agentlint.py             # deterministic engine (stdlib, PyYAML optional)
+│       │   ├── references/rule-catalogue.md     # generated: agentlint.py --list-rules --format markdown
+│       │   └── scripts/
+│       │       ├── agentlint.py                 # entrypoint (stdlib, PyYAML optional)
+│       │       └── agentlint_lib/               # model, catalogue, yamlfm, discover, toolnames, rules_*, api, report, cli
 │       ├── reviewing-agent-definitions/
 │       │   ├── SKILL.md
 │       │   └── references/{copilot-agent-fields.md, claude-subagent-fields.md, tool-names.md}
@@ -65,11 +67,18 @@ SKILL_AND_AGENT_BUILDER/
 ├── tests/
 │   ├── fixtures/
 │   │   ├── good/                                # a valid mini-repo: zero errors/warnings, info findings asserted exactly
-│   │   └── bad/                                 # one broken example per rule ID
-│   ├── test_agentlint.py                        # unittest: expected rule IDs per fixture
-│   ├── test_agent_bodies_in_sync.py             # Copilot and Claude agent bodies identical
+│   │   └── bad/                                 # one broken example per auto rule ID
+│   ├── helpers.py                               # run_lint(), ids(), GOOD/BAD paths
+│   ├── test_yamlfm.py, test_catalogue.py, test_discover.py, test_cli.py
+│   ├── test_rules_ag.py, test_rules_sk.py, test_rules_in.py, test_rules_cf.py, test_rules_xf.py
+│   ├── test_good_fixture.py                     # good fixture clean + every auto rule has a bad fixture
+│   ├── test_catalogue_sync.py                   # rule-catalogue.md matches the registry
+│   ├── test_agent_files.py                      # Copilot and Claude agent bodies identical, frontmatter valid
 │   └── test_self_review.py                      # dogfooding: this repo lints clean
-├── docs/superpowers/specs/2026-09-03-agent-skill-reviewer-design.md
+├── docs/
+│   ├── reference/agent-file-formats.md          # verified format digest, source of the skills' references/
+│   ├── superpowers/specs/2026-09-03-agent-skill-reviewer-design.md
+│   └── superpowers/plans/2026-09-03-agent-skill-reviewer.md
 └── README.md
 ```
 
@@ -169,7 +178,17 @@ Common conventions for all seven `SKILL.md` files:
 
 ## 6. Rule catalogue (initial)
 
-Severity: **error** = the file will not load, is ignored, or behaves wrongly; **warning** = likely wrong, deprecated, or contradictory; **info** = style, portability, or an observation for the reader. Tag: **auto** = implemented in `agentlint.py`; **manual** = judged by the model with the skill's guidance. Every rule carries a source URL in `references/rule-catalogue.md`.
+Severity: **error** = the file will not load, is ignored, or behaves wrongly; **warning** = likely wrong, deprecated, or contradictory; **info** = style, portability, or an observation for the reader. Tag: **auto** = implemented in `agentlint.py`; **manual** = judged by the model with the skill's guidance. Every rule also carries a runtime (`copilot`, `claude`, `both`, `generic`) and a source URL.
+
+The single source of truth is `agentlint_lib/catalogue.py`; `references/rule-catalogue.md` is generated from it and a test keeps them in sync. Rule IDs are never renumbered once committed. The tables below are the design-time view; where they and `catalogue.py` disagree, `catalogue.py` wins.
+
+### GN — general file hygiene (applied to every discovered file)
+| ID | Sev | Tag | Check |
+|---|---|---|---|
+| GN001 | warning | auto | UTF-8 byte-order mark at start of file |
+| GN002 | info | auto | CRLF line endings |
+| GN003 | error | auto | File is not valid UTF-8 |
+| GN004 | info | auto | File skipped (binary or unreadable); also listed under "Not checked" |
 
 ### AG — agent definitions
 | ID | Sev | Tag | Check |
@@ -196,6 +215,14 @@ Severity: **error** = the file will not load, is ignored, or behaves wrongly; **
 | AG020 | warning | manual | Body contradicts itself |
 | AG021 | info | manual | Body names skills or agents that do not exist in the repository |
 | AG022 | warning | auto | `target` not `vscode` or `github-copilot` |
+| AG023 | info | auto | Claude `tools` given as a YAML list; docs specify a comma-separated string |
+| AG024 | warning | auto | Copilot `tools` is not a YAML list (e.g. a Claude-style comma string) |
+| AG025 | error | auto | `handoffs` entry missing `label` or `agent`, or `handoffs` not a list |
+| AG026 | warning | auto | Boolean field (`user-invocable`, `disable-model-invocation`, `background`) has a non-boolean value |
+| AG027 | error | auto | Claude `skills` is not a YAML list of skill names |
+| AG028 | error | auto | `mcp-servers` entry missing `tools`/`type` or `type` not `local`/`stdio`/`http`/`sse` |
+
+AG008 is emitted as **error** when no `tools` entry resolves (the subagent cannot launch) and **warning** when only some entries are unknown. Claude `hooks` in subagent frontmatter are validated with the CF007/CF010/CF018 checks.
 
 ### SK — skill files
 | ID | Sev | Tag | Check |
@@ -218,15 +245,18 @@ Severity: **error** = the file will not load, is ignored, or behaves wrongly; **
 | SK016 | warning | manual | Description summarises the workflow (agents may follow it instead of the body) |
 | SK017 | warning | manual | Body contradicts itself or references tools/commands that do not exist |
 | SK018 | info | manual | Body duplicates content of another skill instead of cross-referencing it |
+| SK019 | warning | auto | `allowed-tools` is a YAML list; the spec wants a space-separated string (`gh skill publish` rejects lists) |
+
+Skill `hooks` frontmatter is validated with the CF007/CF010/CF018 checks.
 
 ### IN — instructions and prompt files
 | ID | Sev | Tag | Check |
 |---|---|---|---|
 | IN001 | error | auto | `*.instructions.md` / `*.prompt.md` frontmatter invalid |
 | IN002 | warning | auto | `*.instructions.md` without `applyTo` |
-| IN003 | error | auto | `applyTo` not a string of comma-separated globs |
+| IN003 | warning | auto | `applyTo` is a YAML list or non-string (documented form is a comma-separated string; VS Code tolerates lists, github.com does not document them) |
 | IN004 | warning | auto | `excludeAgent` not `code-review` or `cloud-agent` |
-| IN005 | info | auto | `copilot-instructions.md` longer than two pages (> 8,000 characters) |
+| IN005 | info | auto | Instruction file longer than 1,000 lines (may be partly overlooked) |
 | IN006 | error | auto | `*.prompt.md` `agent:` references an agent that does not exist |
 | IN007 | error | auto | `CLAUDE.md` `@import` target missing (imports inside code spans are skipped) |
 | IN008 | error | auto | `.claude/rules` `paths` is not a YAML list of strings |
@@ -238,6 +268,10 @@ Severity: **error** = the file will not load, is ignored, or behaves wrongly; **
 | IN014 | warning | auto | Unknown frontmatter key in an instruction or prompt file |
 | IN015 | warning | manual | Task-specific or one-off instructions in a repository-wide file |
 | IN016 | warning | manual | Instruction demands something impossible in the repo (a command, path, or tool that does not exist) |
+| IN017 | warning | auto | Instruction or prompt file has an empty body |
+| IN018 | warning | auto | Prompt file uses legacy `mode`; use `agent` |
+| IN019 | warning | auto | Prompt file `tools` is not a YAML list |
+| IN020 | info | auto | Legacy `.claude/commands` file; skills are recommended |
 
 ### CF — MCP, hooks, environment, plugin manifests
 | ID | Sev | Tag | Check |
@@ -250,11 +284,20 @@ Severity: **error** = the file will not load, is ignored, or behaves wrongly; **
 | CF006 | error | auto | Literal secret-looking value in `env` or `headers` (should be a variable reference) |
 | CF007 | error | auto | Hook event name misspelled, or handler missing `type` / `command` / `url` |
 | CF008 | error | auto | `copilot-setup-steps.yml` job not named `copilot-setup-steps`, or uses unsupported job keys |
-| CF009 | error | auto | `plugin.json` not at `.claude-plugin/plugin.json`, or component dirs placed inside `.claude-plugin/` |
+| CF009 | error | auto | Component dirs (`agents/`, `skills/`, `commands/`, `hooks/`) placed inside `.claude-plugin/` (a manifest at any other path is simply not discovered) |
 | CF010 | warning | auto | Hook or MCP command script path missing or not executable |
 | CF011 | info | auto | `${VAR}` reference with no default |
 | CF012 | error | auto | stdio server missing `command`; http/sse server missing `url` |
 | CF013 | info | auto | Copilot-only `tools` allowlist inside a `.mcp.json` shared with Claude Code (behaviour undocumented) |
+| CF014 | info | auto | Unknown key in an MCP server entry |
+| CF015 | error | auto | `${input:id}` used in `.vscode/mcp.json` but not declared in `inputs` |
+| CF016 | warning | auto | Cloud-agent `env`/`headers` value for a secret-looking key is not a `COPILOT_MCP_`-prefixed reference |
+| CF017 | info | auto | `once` in a settings/plugin hook (only honoured in skill frontmatter) |
+| CF018 | warning | auto | `if` on a non-tool hook event (never evaluated) |
+| CF019 | info | auto | `copilot-setup-steps.yml` has no `on:` triggers (cannot be self-tested as a workflow) |
+| CF020 | error | auto | Plugin or marketplace manifest missing `name` |
+| CF021 | error | auto | Marketplace `plugins` entry missing `name` or `source`, or `plugins` not a list |
+| CF022 | info | auto | `type: sse` in a Copilot MCP config (legacy transport) |
 
 ### XF — cross-file
 | ID | Sev | Tag | Check |
@@ -274,16 +317,19 @@ Severity: **error** = the file will not load, is ignored, or behaves wrongly; **
 
 ```
 python3 .claude/skills/linting-agent-config-files/scripts/agentlint.py [PATH ...]
-    [--root DIR]               repository root (default: cwd; git toplevel if inside a repo)
-    [--format json|text]       default text; json for the agent
+    [--root DIR]               repository root (default: git toplevel if inside a repo, else cwd)
+    [--format json|text|markdown]  default text; json for the agent; markdown only with --list-rules
     [--kind KIND]              force a kind for the given paths (e.g. mcp-copilot-cloud for pasted config)
     [--no-collisions]          skip the XF checks
     [--exclude GLOB]           skip matching paths (repeatable; e.g. 'tests/fixtures/**')
     [--min-severity LEVEL]     error|warning|info (default info)
-    [--list-rules]             print the catalogue and exit
+    [--list-rules]             print the catalogue and exit (text, or markdown with --format markdown)
+    [--version]
 ```
 
-- **Discovery** (when no PATH): via `git ls-files` if available, else `os.walk` skipping `.git`, `node_modules`, `vendor`, `dist`, `build`; `--exclude` globs are applied after discovery. Environment variable `AGENTLINT_YAML=builtin` forces the fallback parser (used by the tests). Patterns: `.github/agents/*.md`, `.claude/agents/**/*.md`, `**/*.agent.md`, `**/*.chatmode.md`, `**/SKILL.md`, `.github/copilot-instructions.md`, `**/*.instructions.md`, `**/*.prompt.md`, `**/AGENTS.md`, `**/AGENT.md`, `**/CLAUDE.md`, `CLAUDE.local.md`, `.claude/rules/**/*.md`, `.claude/commands/**/*.md`, `.mcp.json`, `.vscode/mcp.json`, `.github/mcp.json`, `.claude/settings*.json`, `.claude-plugin/*.json`, `.github/plugin/*.json`, `.github/workflows/copilot-setup-steps.yml`, `.cursor/rules/**`.
+Internally the entrypoint is a thin wrapper over the `agentlint_lib` package (`api.lint(...)` returns the same dict as `--format json`; tests call it in-process).
+
+- **Discovery** (when no PATH): via `git ls-files --cached --others --exclude-standard` if available, else `os.walk` skipping `.git`, `node_modules`, `vendor`, `dist`, `build`, `__pycache__`, `.venv`, `venv`; `--exclude` globs are applied after discovery. A file under `.claude/agents/` is always `claude-subagent`, even with an `.agent.md` suffix (location wins over suffix). Environment variable `AGENTLINT_YAML=builtin` forces the fallback parser (used by the tests). Patterns: `.github/agents/*.md`, `.claude/agents/**/*.md`, `**/*.agent.md`, `**/*.chatmode.md`, `**/SKILL.md`, `.github/copilot-instructions.md`, `**/*.instructions.md`, `**/*.prompt.md`, `**/AGENTS.md`, `**/AGENT.md`, `**/CLAUDE.md`, `CLAUDE.local.md`, `.claude/rules/**/*.md`, `.claude/commands/**/*.md`, `.mcp.json`, `.vscode/mcp.json`, `.github/mcp.json`, `.claude/settings*.json`, `.claude-plugin/*.json`, `.github/plugin/*.json`, `.github/workflows/copilot-setup-steps.yml`, `.cursor/rules/**`.
 - **Kinds**: `copilot-agent`, `claude-subagent`, `chatmode`, `skill`, `copilot-instructions`, `path-instructions`, `prompt-file`, `agents-md`, `claude-md`, `claude-rule`, `claude-command`, `mcp-claude`, `mcp-vscode`, `mcp-copilot-cli`, `mcp-copilot-cloud`, `settings-hooks`, `copilot-setup-steps`, `plugin-manifest`, `marketplace-manifest`, `cursor-rule`. A file under `.github/agents/` is `copilot-agent`; under `.claude/agents/` is `claude-subagent`; a Claude-format file (`name` + comma-string `tools`) found under `.github/agents/` is still linted as `copilot-agent` with a portability note.
 - **YAML**: PyYAML when importable; otherwise a bundled parser supporting scalars, quoted strings, flow lists, block lists, one level of nested maps, and block scalars. When the fallback is used, findings that depend on nested structures are emitted with `confidence: medium` and the run header says `yaml_parser: builtin`.
 - **Output JSON**:
@@ -346,8 +392,8 @@ Rules for the writer: one finding per root cause; every finding has ID, location
 
 ## 10. Testing
 
-1. **Unit tests** (`tests/test_agentlint.py`, stdlib `unittest`): for every auto rule there is at least one `bad/` fixture that triggers it and the assertion checks the exact rule ID and file; the `good/` fixture tree (a complete mini-repo with a valid agent pair, three skills, instructions, prompt, `.mcp.json`, `.vscode/mcp.json`, hooks, `copilot-setup-steps.yml`) produces zero errors and zero warnings, and exactly the expected info findings (AG012 for the VS Code-only keys, XF002 for the agent twin). Both YAML paths are tested by running the suite twice, the second time with `AGENTLINT_YAML=builtin`.
-2. **Sync test**: the two agent bodies are identical below the frontmatter.
+1. **Unit tests** (stdlib `unittest`, one module per linter module plus `test_rules_*` per rule family): for every auto rule there is at least one `bad/` fixture that triggers it and the assertion checks the exact rule ID and file; a coverage test asserts that the set of auto rule IDs equals the set observed on `bad/` (plus the few rules exercised from temp directories: GN001–GN004, AG010, SK006, IN005, and the cloud-agent rules CF005/CF016 via `--kind`). The `good/` fixture tree (a complete mini-repo with a valid agent pair, three skills, instructions, prompt, `.mcp.json`, `.vscode/mcp.json`, hooks, `copilot-setup-steps.yml`) produces zero errors and zero warnings, and exactly the expected info findings (AG012 for the VS Code-only keys, XF002 for the agent twin). Both YAML paths are tested by running the suite twice, the second time with `AGENTLINT_YAML=builtin`.
+2. **Sync tests**: `test_agent_files.py` — the two agent bodies are identical below the frontmatter, the Copilot file grants no `edit`, the Claude file grants no `Edit`/`Write`, and every preloaded skill exists; `test_catalogue_sync.py` — `references/rule-catalogue.md` equals the generated catalogue.
 3. **Self-review test**: running the linter on this repository with `--exclude 'tests/fixtures/**'` yields zero errors and zero warnings.
 4. **Copilot discovery check** (Copilot CLI 1.0.80 is installed locally): from the repo root, run the CLI in non-interactive mode to list agents and skills and confirm `agent-skill-reviewer` and the seven skills are discovered; record the command and output in the README.
 5. **Claude Code behavioural check**: dispatch the reviewer as a Claude Code subagent on `tests/fixtures/bad/` (a) with the skills present and (b) with `.claude/skills` temporarily renamed, and confirm that (a) reports the expected rule IDs with sources while (b) misses or mislabels them. This is the writing-skills RED/GREEN check.
@@ -357,8 +403,8 @@ Rules for the writer: one finding per root cause; every finding has ID, location
 
 Assumptions:
 - Reviews run from the repository root (all paths in the skills are root-relative).
-- Python 3.8+ is available where the reviewer runs (true on GitHub-hosted cloud-agent runners and on this machine); the manual fallback covers the rest.
-- The user will decide separately whether to `git init` this folder; the spec and files are written regardless.
+- Python 3.8+ is available where the reviewer runs (true on GitHub-hosted cloud-agent runners and on this machine, which has 3.14 and PyYAML); the manual fallback covers the rest.
+- The research scratchpad that held the first format digest is gone; `docs/reference/agent-file-formats.md` is rebuilt from the official pages in §12 (plan Task 0).
 
 Unresolved in the official docs (surfaced by the research pass; the reviewer reports them under "Not checked" rather than inventing rules):
 - Maximum length of a Copilot agent `name`/`description`.
@@ -367,6 +413,7 @@ Unresolved in the official docs (surfaced by the research pass; the reviewer rep
 - Whether Claude Code accepts a YAML list for subagent `tools` (docs say comma-separated string; the twin uses the string form).
 - Whether Claude Code errors on unknown keys such as Copilot's `tools` allowlist inside a shared `.mcp.json`.
 - Exact `metadata.github-*` keys written by `gh skill install`.
+- Whether `hooks` inside skill frontmatter accepts the full settings-file hook schema (the linter assumes it does).
 
 ## 12. Sources
 
