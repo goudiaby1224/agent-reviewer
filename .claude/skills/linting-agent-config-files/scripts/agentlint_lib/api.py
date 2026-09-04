@@ -53,7 +53,13 @@ def lint(root: Optional[str], paths: List[str], excludes: List[str], collisions:
     _load_rule_modules()
     root = resolve_root(root)
     files = discover.discover(root, paths, excludes, force_kind)
-    ctx = Context(root=root, files=files, yaml_parser=yamlfm.parser_name())
+    # Explicit paths narrow what is reported, not what names resolve against: agents, skills and
+    # prompts elsewhere in the repository still count when checking references from the scoped files.
+    universe = files
+    if paths:
+        in_scope = {f.path for f in files}
+        universe = files + [f for f in discover.discover(root, [], excludes, None) if f.path not in in_scope]
+    ctx = Context(root=root, files=universe, yaml_parser=yamlfm.parser_name())
     findings: List[Finding] = []
     for cf in files:
         findings.extend(rules_gn.check(cf, ctx))
@@ -62,8 +68,9 @@ def lint(root: Optional[str], paths: List[str], excludes: List[str], collisions:
         for checker in RULE_MODULES.get(cf.kind, []):
             findings.extend(checker(cf, ctx))
     if collisions:
+        scope = {f.path for f in files}
         for func in CROSS_FILE:
-            findings.extend(func(ctx))
+            findings.extend(f for f in func(ctx) if f.file in scope)
     if not any(f.kind == "mcp-copilot-cloud" for f in files):
         ctx.not_checked.append("Copilot cloud-agent MCP configuration lives in repository settings, not in the tree; "
                                "pass it with --kind mcp-copilot-cloud <file> to lint a pasted copy")

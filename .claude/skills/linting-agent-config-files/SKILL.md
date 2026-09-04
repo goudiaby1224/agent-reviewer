@@ -30,6 +30,7 @@ The linter is pure Python 3.8+ with no required dependencies. PyYAML is used whe
 
 Useful variants:
 - `--min-severity warning` hides info-level portability notes.
+- Giving PATH arguments narrows what is reported, not what names resolve against: a prompt's `agent` or a subagent's `skills` are still checked against the whole repository.
 - `--no-collisions` skips the cross-file (XF) checks when reviewing a single file in isolation.
 - `--kind mcp-copilot-cloud path/to/pasted.json` lints a file the tree does not contain, with the kind forced.
 - `--list-rules` prints the catalogue as text; `--list-rules --format markdown` regenerates `references/rule-catalogue.md`.
