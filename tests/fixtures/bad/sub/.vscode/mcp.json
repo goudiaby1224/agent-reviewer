@@ -1,1 +1,1 @@
-{"servers": {"s": {"type": "http", "url": "https://x", "headers": {"A": "${input:tok}"}}}}
+{"servers": {"s": {"type": "http", "url": "https://x", "headers": {"A": "${input:tok}"}}, "legacy": {"type": "sse", "url": "https://x/sse"}}}

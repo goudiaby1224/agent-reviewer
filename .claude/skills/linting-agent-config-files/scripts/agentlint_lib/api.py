@@ -29,16 +29,10 @@ def _load_rule_modules():
     if RULE_MODULES or CROSS_FILE:
         return
     for name in _RULE_MODULE_NAMES:
-        try:
-            mod = importlib.import_module("." + name, __package__)
-        except ImportError:
-            continue  # TEMPORARY until Task 8: module not written yet
+        mod = importlib.import_module("." + name, __package__)
         register_checker(mod.KINDS, mod.check)
-    try:
-        from . import rules_xf
-        register_cross_file(rules_xf.check)
-    except ImportError:
-        pass  # TEMPORARY until Task 8
+    from . import rules_xf
+    register_cross_file(rules_xf.check)
 
 
 def resolve_root(root: Optional[str]) -> str:

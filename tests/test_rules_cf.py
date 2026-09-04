@@ -26,7 +26,7 @@ class CfRulesTests(unittest.TestCase):
 
     def test_vscode_mcp(self):
         self.expect(".vscode/mcp.json", "CF002")
-        self.expect("sub/.vscode/mcp.json", "CF015")
+        self.expect("sub/.vscode/mcp.json", "CF015", "CF022")
 
     def test_invalid_json(self):
         self.expect(".github/mcp.json", "CF001")

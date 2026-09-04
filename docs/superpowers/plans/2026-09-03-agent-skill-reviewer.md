@@ -2441,7 +2441,7 @@ Claude-Session: https://claude.ai/code/session_016TZTeGdK9WuTukJpPzZFxY"
 |---|---|---|
 | `.mcp.json` | servers `a` (`url` only, header `Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456`), `b` (`type: sse`, `url`, `tools: ["*"]`, `bogus: 1`), `c` (`type: stdio`, no command, `env: {"X": "${X}"}`), `d` (`type: stdio`, `command: ./bin/missing-server`) | CF003 a, CF006 a, CF004 b, CF013 b, CF014 b, CF012 c, CF011 c, CF010 d |
 | `.vscode/mcp.json` | `{"mcpServers": {}}` | CF002 |
-| `sub/.vscode/mcp.json` | `{"servers": {"s": {"type": "http", "url": "https://x", "headers": {"A": "${input:tok}"}}}}` | CF015 |
+| `sub/.vscode/mcp.json` | `{"servers": {"s": {"type": "http", "url": "https://x", "headers": {"A": "${input:tok}"}}, "legacy": {"type": "sse", "url": "https://x/sse"}}}` | CF015, CF022 |
 | `.github/mcp.json` | `{"mcpServers": ` (truncated) | CF001 |
 | `cloud-mcp.json` (not auto-discovered) | `{"mcpServers": {"s": {"command": "npx", "env": {"API_TOKEN": "MY_TOKEN"}}}}` | CF005, CF016 via `force_kind` |
 | `.claude/settings.json` | `{"hooks": {"OnSave": [], "PreToolUse": [{"hooks": [{"type": "command"}]}], "Stop": [{"hooks": [{"type": "command", "command": "./hooks/missing.sh", "if": "Bash", "once": true}]}]}}` | CF007 (×2), CF018, CF017, CF010 |

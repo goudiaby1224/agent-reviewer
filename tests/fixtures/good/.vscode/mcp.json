@@ -1,0 +1,10 @@
+{
+  "inputs": [{"id": "token", "type": "promptString", "password": true}],
+  "servers": {
+    "api": {
+      "type": "http",
+      "url": "https://example.com/mcp",
+      "headers": {"Authorization": "Bearer ${input:token}"}
+    }
+  }
+}
