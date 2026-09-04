@@ -121,7 +121,7 @@ Field rationale:
 ---
 name: agent-skill-reviewer
 description: Reviews AI agent configuration files (custom agents, SKILL.md skills, copilot-instructions.md, *.instructions.md, *.prompt.md, AGENTS.md, CLAUDE.md, .claude/rules, MCP and hooks config) for syntax errors, spec violations, contradictions and bugs, and returns a findings report without editing anything. Use proactively after any of those files is created or changed, or when asked to review, audit, lint or validate agents, skills, instructions or prompts.
-tools: Read, Grep, Glob, Bash(python3:*), Bash(python:*), Bash(ls:*), Bash(find:*), Bash(git diff:*), Bash(git status:*), Bash(git ls-files:*)
+tools: Read, Grep, Glob, Bash
 model: inherit
 skills:
   - linting-agent-config-files
@@ -130,7 +130,7 @@ skills:
 ```
 
 Field rationale:
-- `tools` is a comma-separated string (Claude format). No Edit/Write: read-only by construction.
+- `tools` is a comma-separated string (Claude format). No Edit/Write: read-only by construction. Plain tool names only: the sub-agents page (fetched 2026-09-04) documents `Agent(type)` and `mcp__*` forms but no `Bash(pattern)` permission rules inside `tools`, so the twin does not rely on them.
 - `skills` preloads only the two skills every review needs; the other five are loaded on demand by name.
 - `model: inherit` keeps the parent conversation's model.
 

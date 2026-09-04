@@ -3304,4 +3304,14 @@ The plan is the more detailed document; the spec was reconciled to it on 2026-09
 - The linter is a package (`agentlint_lib/`) next to the `agentlint.py` entrypoint.
 - `docs/reference/agent-file-formats.md` is rebuilt from the official sources (the research scratchpad no longer exists).
 
+Deltas introduced while executing Tasks 0, 8 and 10 on 2026-09-04, after fetching the official pages:
+
+- The Claude twin's `tools` is `Read, Grep, Glob, Bash`; `Bash(pattern)` rules inside subagent `tools` are undocumented.
+- XF001 no longer claims first-found-wins precedence between Copilot skill directories (undocumented); its source is the github.com skills page.
+- AG024 is info, not warning: github.com documents both a comma-separated string and a YAML list for Copilot `tools`.
+- CF008 reports unsupported setup-steps job keys as warnings (the docs say they are ignored) and uses the six documented keys.
+- Key sets, enum values and hook events in `rules_*.py` follow the pages fetched 2026-09-04 (see the `fix(agentlint)` commits).
+- Explicit PATH arguments narrow what the linter reports, not what names resolve against.
+- `sub/.vscode/mcp.json` in the bad fixture also carries an `sse` server so CF022 has a fixture.
+
 ---
