@@ -7,7 +7,8 @@ from typing import List
 from .model import ConfigFile, Context, Finding
 from .rules_in import BUILTIN_AGENTS, agent_names
 
-DISCOVERY_ORDER = {".github": 0, ".agents": 1, ".claude": 2}  # Copilot skill precedence, first found wins
+DISCOVERY_ORDER = {".github": 0, ".agents": 1, ".claude": 2}  # reporting order; Copilot does not document precedence
+CLAUDE_BUILTIN_AGENTS = {"Explore", "Plan", "general-purpose"}  # valid targets for a skill's agent: key
 
 
 def _skill_name(f: ConfigFile) -> str:
@@ -35,7 +36,8 @@ def check(ctx: Context) -> List[Finding]:
         if len({_skill_root(f) for f in fs}) > 1:
             order = sorted(fs, key=lambda f: (DISCOVERY_ORDER.get(_skill_root(f), 99), f.path))
             for f in order[1:]:
-                out.append(Finding("XF001", f.path, "skill %r is also defined at %s, which is found first and wins" % (name, order[0].path), line=1))
+                out.append(Finding("XF001", f.path, "skill %r is also defined at %s; Copilot reads both directories and does not "
+                                   "document which copy wins, so keep one" % (name, order[0].path), line=1))
     by_agent = defaultdict(list)
     for f in agents:
         by_agent[_agent_name(f)].append(f)
@@ -64,7 +66,7 @@ def check(ctx: Context) -> List[Finding]:
                     out.append(Finding("XF003", f.path, "handoff targets agent %r which does not exist" % h["agent"], line=f.key_line("handoffs")))
     for f in skills:
         a = f.fm.get("agent")
-        if isinstance(a, str) and a not in all_agents:
+        if isinstance(a, str) and a not in all_agents and a not in CLAUDE_BUILTIN_AGENTS:
             out.append(Finding("XF003", f.path, "agent %r does not exist" % a, line=f.key_line("agent")))
     for c in ctx.by_kind("claude-command"):
         if c.name[:-3] in skill_names:

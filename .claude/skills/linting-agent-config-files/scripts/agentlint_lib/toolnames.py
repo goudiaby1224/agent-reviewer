@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 COPILOT_TOOL_ALIASES = {
     "execute", "shell", "bash", "powershell", "read", "notebookread", "edit", "multiedit", "write",
     "notebookedit", "search", "grep", "glob", "agent", "custom-agent", "task", "web", "websearch",
-    "webfetch", "todo", "todowrite", "browser", "view", "str_replace", "str_replace_editor",
+    "webfetch", "todo", "todowrite", "browser", "view", "str_replace", "str_replace_editor", "runsubagent",
     # legacy VS Code tool ids
     "codebase", "editfiles", "fetch", "runcommands", "runtasks", "usages", "problems", "changes",
     "testfailure", "terminallastcommand", "terminalselection", "findtestfiles", "githubrepo",
@@ -25,7 +25,7 @@ CLAUDE_TOOLS = {
     "EndConversation", "Artifact",
 }
 _CLAUDE_PATTERN = re.compile(r"^([A-Za-z]+)\((.*)\)$")
-_CLAUDE_MCP = re.compile(r"^mcp__[A-Za-z0-9_-]+(__[A-Za-z0-9_-]+)?$")
+_CLAUDE_MCP = re.compile(r"^mcp__[A-Za-z0-9_-]+(__([A-Za-z0-9_-]+|\*))?$")  # mcp__server, mcp__server__tool, mcp__server__*
 
 
 def copilot_tool_problem(entry: str) -> Optional[str]:

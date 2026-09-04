@@ -16,16 +16,17 @@ COPILOT_FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 BODY_LIMIT = 30000
 
 CLAUDE_KEYS = {"name", "description", "tools", "disallowedTools", "model", "permissionMode", "skills", "hooks",
-               "memory", "effort", "color", "isolation", "background", "maxTurns", "mcpServers"}
+               "memory", "effort", "color", "isolation", "background", "maxTurns", "mcpServers", "initialPrompt",
+               "experimental"}
 CLAUDE_BOOL_KEYS = ("background",)
 CLAUDE_ENUMS = {
-    "permissionMode": {"default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan"},
+    "permissionMode": {"default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan", "manual"},
     "memory": {"user", "project", "local"},
-    "effort": {"low", "medium", "high", "max"},
+    "effort": {"low", "medium", "high", "xhigh", "max"},
     "color": {"red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"},
     "isolation": {"worktree"},
 }
-CLAUDE_MODEL_ALIASES = {"sonnet", "opus", "haiku", "inherit"}
+CLAUDE_MODEL_ALIASES = {"sonnet", "opus", "haiku", "fable", "inherit"}
 CLAUDE_NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 COPILOT_DISPLAY_MODEL_RE = re.compile(r"^(gpt|gemini|grok|o[0-9])", re.IGNORECASE)
 
@@ -82,9 +83,14 @@ def _copilot(cf: ConfigFile, fm: Dict[str, Any]) -> List[Finding]:
             if k in fm:
                 out.append(Finding("AG011", cf.path, "%s is not used when target is vscode" % k, line=cf.key_line(k)))
     tools = fm.get("tools")
-    if tools is not None and not isinstance(tools, list):
-        hint = " (looks like a Claude subagent tools string)" if isinstance(tools, str) and "," in tools else ""
-        out.append(Finding("AG024", cf.path, "tools must be a YAML list%s" % hint, line=cf.key_line("tools")))
+    if isinstance(tools, str):
+        # github.com "Supports both a comma separated string and yaml string array"; VS Code documents a list.
+        out.append(Finding("AG024", cf.path, "tools is a comma-separated string; github.com accepts it but VS Code documents a YAML list",
+                           line=cf.key_line("tools"), autofix_safe=True,
+                           suggestion="tools: [%s]" % ", ".join("'%s'" % t for t in toolnames._split_commas(tools))))
+        tools = toolnames._split_commas(tools)
+    elif tools is not None and not isinstance(tools, list):
+        out.append(Finding("AG024", cf.path, "tools must be a YAML list of tool names", line=cf.key_line("tools"), severity="warning"))
         tools = []
     for t in tools or []:
         problem = toolnames.copilot_tool_problem(t)

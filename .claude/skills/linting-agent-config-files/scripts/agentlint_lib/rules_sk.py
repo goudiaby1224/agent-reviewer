@@ -8,8 +8,10 @@ from .model import ConfigFile, Context, Finding
 KINDS = ("skill",)
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SPEC_KEYS = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
-CLAUDE_ONLY_KEYS = {"disable-model-invocation", "user-invocable", "argument-hint", "hooks", "context", "agent",
-                    "model", "paths", "effort", "once"}
+# Claude Code extensions (code.claude.com/docs/en/skills); VS Code documents the four in VSCODE_KEYS as well.
+CLAUDE_ONLY_KEYS = {"when_to_use", "argument-hint", "arguments", "disable-model-invocation", "user-invocable",
+                    "disallowed-tools", "model", "effort", "context", "agent", "background", "hooks", "paths", "shell"}
+VSCODE_KEYS = {"argument-hint", "user-invocable", "disable-model-invocation", "context"}
 LINK_RE = re.compile(r"\]\(([^)\s#?]+)")
 PATH_RE = re.compile(r"`((?:scripts|references|assets)/[\w./-]+)`")
 SCRIPT_EXTS = (".py", ".sh", ".bash", "")
@@ -55,8 +57,15 @@ def check(cf: ConfigFile, ctx: Context) -> List[Finding]:
         out.append(Finding("SK009", cf.path, "compatibility must be a string of at most 500 characters", line=cf.key_line("compatibility")))
     claude_keys = [k for k in fm if k in CLAUDE_ONLY_KEYS]
     if claude_keys:
-        out.append(Finding("SK010", cf.path, "Claude Code-only keys ignored by Copilot: %s" % ", ".join(claude_keys),
-                           line=cf.key_line(claude_keys[0])))
+        parts = []
+        only = [k for k in claude_keys if k not in VSCODE_KEYS]
+        shared = [k for k in claude_keys if k in VSCODE_KEYS]
+        if only:
+            parts.append("Claude Code only: %s" % ", ".join(only))
+        if shared:
+            parts.append("Claude Code and VS Code: %s" % ", ".join(shared))
+        out.append(Finding("SK010", cf.path, "keys outside the Agent Skills spec (%s); other runtimes ignore them and "
+                           "claude.ai uploads reject them" % "; ".join(parts), line=cf.key_line(claude_keys[0])))
     for k in fm:
         if k not in SPEC_KEYS and k not in CLAUDE_ONLY_KEYS:
             out.append(Finding("SK011", cf.path, "unknown key %r (possible typo)" % k, line=cf.key_line(k)))

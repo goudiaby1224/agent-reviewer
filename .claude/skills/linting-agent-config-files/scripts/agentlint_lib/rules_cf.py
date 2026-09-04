@@ -11,23 +11,28 @@ MCP_KINDS = ("mcp-claude", "mcp-vscode", "mcp-copilot-cli", "mcp-copilot-cloud")
 TOP_KEY = {"mcp-claude": "mcpServers", "mcp-vscode": "servers", "mcp-copilot-cli": "mcpServers",
            "mcp-copilot-cloud": "mcpServers"}
 SERVER_KEYS = {"type", "command", "args", "env", "envFile", "url", "headers", "tools", "cwd", "dev", "gallery",
-               "version", "timeout", "oauth"}
-REMOTE_TYPES = {"http", "sse"}
+               "version", "timeout", "oauth", "headersHelper", "alwaysLoad", "sandboxEnabled"}
+REMOTE_TYPES = {"http", "sse", "ws", "streamable-http"}
 CLOUD_TYPES = {"local", "stdio", "http", "sse"}
 SECRET_KEY_RE = re.compile(r"(token|secret|password|passwd|api[_-]?key|authorization)", re.I)
 SECRET_VALUE_RE = re.compile(
     r"^(sk-[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gh[ousr]_[A-Za-z0-9]{20,}"
     r"|xox[abp]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|Bearer\s+\S{20,})")
 VAR_RE = re.compile(r"\$\{([^}]*)\}")
+# code.claude.com/docs/en/hooks, event table (33 events)
 HOOK_EVENTS = {
-    "PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "Notification", "UserPromptSubmit",
-    "Stop", "SubagentStart", "SubagentStop", "PreCompact", "SessionStart", "SessionEnd", "Setup", "TeammateIdle",
-    "TaskCompleted", "ConfigChange", "WorktreeCreate", "WorktreeRemove", "InstructionsLoaded", "Elicitation",
-    "ElicitationResult", "CwdChanged", "FileChanged",
+    "SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest",
+    "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay",
+    "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle",
+    "InstructionsLoaded", "ConfigChange", "CwdChanged", "DirectoryAdded", "FileChanged", "WorktreeCreate",
+    "WorktreeRemove", "PreCompact", "PostCompact", "PreModelSwitch", "PostModelSwitch", "Elicitation",
+    "ElicitationResult", "SessionEnd",
 }
-TOOL_EVENTS = {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest"}
-HANDLER_REQUIRED = {"command": "command", "http": "url", "prompt": "prompt", "agent": "prompt"}
-SETUP_JOB_KEYS = {"name", "runs-on", "steps", "permissions", "timeout-minutes", "services", "container", "snapshot", "env"}
+TOOL_EVENTS = {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionDenied"}  # where `if` applies
+HANDLER_REQUIRED = {"command": ("command",), "http": ("url",), "mcp_tool": ("server", "tool"), "prompt": ("prompt",),
+                    "agent": ("prompt",)}
+# customize-the-agent-environment: "you can only customize the following settings of the copilot-setup-steps job"
+SETUP_JOB_KEYS = {"steps", "permissions", "runs-on", "services", "snapshot", "timeout-minutes"}
 
 
 def check(cf: ConfigFile, ctx: Context) -> List[Finding]:
@@ -52,7 +57,12 @@ def _mcp(cf: ConfigFile, ctx: Context) -> List[Finding]:
         return [Finding("CF001", cf.path, "top level must be a JSON object", line=1)]
     want = TOP_KEY[cf.kind]
     other = "servers" if want == "mcpServers" else "mcpServers"
-    if want not in data:
+    if want in data:
+        servers = data[want]
+    elif (cf.kind == "mcp-copilot-cli" and other not in data and data
+          and all(isinstance(v, dict) for v in data.values())):
+        servers = data  # Copilot CLI project files may use "the bare top-level format where each key is an MCP server name"
+    else:
         if other in data:
             out.append(Finding("CF002", cf.path, "uses %r; this file needs %r" % (other, want), line=1,
                                autofix_safe=True, suggestion="rename the key to %s" % want))
@@ -60,7 +70,6 @@ def _mcp(cf: ConfigFile, ctx: Context) -> List[Finding]:
             out.append(Finding("CF002", cf.path, "missing top-level %r" % want, line=1))
         return out
     inputs = {i.get("id") for i in data.get("inputs", []) if isinstance(i, dict)}
-    servers = data[want]
     if not isinstance(servers, dict):
         return [Finding("CF001", cf.path, "%s must be an object" % want, line=1)]
     cloud = cf.kind == "mcp-copilot-cloud"
@@ -154,8 +163,9 @@ def check_hooks_object(hooks: Any, path: str, root: str, in_settings: bool = Fal
                 if t not in HANDLER_REQUIRED:
                     out.append(Finding("CF007", path, "%s: type must be one of %s" % (where, ", ".join(sorted(HANDLER_REQUIRED))), line=line))
                     continue
-                if not h.get(HANDLER_REQUIRED[t]):
-                    out.append(Finding("CF007", path, "%s: type %s requires %s" % (where, t, HANDLER_REQUIRED[t]), line=line))
+                missing = [f for f in HANDLER_REQUIRED[t] if not h.get(f)]
+                if missing:
+                    out.append(Finding("CF007", path, "%s: type %s requires %s" % (where, t, " and ".join(missing)), line=line))
                 if "if" in h and event not in TOOL_EVENTS:
                     out.append(Finding("CF018", path, "%s: if is only evaluated on tool events" % where, line=line))
                 if "once" in h and in_settings:
@@ -190,8 +200,9 @@ def _setup_steps(cf: ConfigFile) -> List[Finding]:
     if not isinstance(job, dict):
         return out + [Finding("CF008", cf.path, "copilot-setup-steps must be a mapping")]
     for k in job:
-        if k not in SETUP_JOB_KEYS:
-            out.append(Finding("CF008", cf.path, "unsupported job key %r (supported: %s)" % (k, ", ".join(sorted(SETUP_JOB_KEYS)))))
+        if k not in SETUP_JOB_KEYS:  # ignored rather than fatal, so a warning
+            out.append(Finding("CF008", cf.path, "unsupported job key %r is ignored (supported: %s)" % (k, ", ".join(sorted(SETUP_JOB_KEYS))),
+                               severity="warning"))
     if "steps" not in job:
         out.append(Finding("CF008", cf.path, "copilot-setup-steps has no steps"))
     return out
@@ -204,7 +215,8 @@ def _plugin(cf: ConfigFile, ctx: Context) -> List[Finding]:
         out.append(Finding("CF020", cf.path, "plugin manifest missing name", line=1))
     if cf.path.endswith(".claude-plugin/plugin.json"):
         mdir = os.path.join(ctx.root, cf.dirname)
-        misplaced = [d for d in ("agents", "skills", "commands", "hooks") if os.path.isdir(os.path.join(mdir, d))]
+        component_dirs = ("commands", "agents", "skills", "workflows", "output-styles", "themes", "monitors", "hooks")
+        misplaced = [d for d in component_dirs if os.path.isdir(os.path.join(mdir, d))]
         if misplaced:
             out.append(Finding("CF009", cf.path, "component directories inside .claude-plugin/: %s (move to the plugin root)" % ", ".join(misplaced)))
     return out

@@ -4,6 +4,7 @@ import re
 from typing import List, Set
 
 from .model import ConfigFile, Context, Finding
+from .rules_sk import CLAUDE_ONLY_KEYS as _SKILL_CLAUDE_KEYS, SPEC_KEYS as _SKILL_SPEC_KEYS
 
 KINDS = ("copilot-instructions", "path-instructions", "prompt-file", "agents-md", "claude-md", "claude-rule",
          "claude-command", "cursor-rule")
@@ -13,7 +14,8 @@ KNOWN_KEYS = {
     "path-instructions": {"applyTo", "description", "excludeAgent", "name"},
     "prompt-file": {"description", "name", "agent", "mode", "model", "tools", "argument-hint"},
     "claude-rule": {"paths"},
-    "claude-command": {"description", "allowed-tools", "argument-hint", "model", "disable-model-invocation"},
+    # .claude/commands files "support the same frontmatter, except name and paths" (code.claude.com/docs/en/skills)
+    "claude-command": (_SKILL_SPEC_KEYS | _SKILL_CLAUDE_KEYS) - {"name", "paths"},
     "cursor-rule": {"description", "globs", "alwaysApply"},
 }
 EXCLUDE_AGENTS = {"code-review", "cloud-agent"}

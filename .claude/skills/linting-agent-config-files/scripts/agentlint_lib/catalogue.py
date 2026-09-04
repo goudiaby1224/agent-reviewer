@@ -64,7 +64,7 @@ rule("AG020", "warning", "manual", "AG", "both", "Body contradicts itself", SRC[
 rule("AG021", "info", "manual", "AG", "both", "Body names skills or agents that do not exist in the repository", SRC["gh-agent-ref"])
 rule("AG022", "warning", "auto", "AG", "copilot", "Target must be vscode or github-copilot", SRC["gh-agent-ref"])
 rule("AG023", "info", "auto", "AG", "claude", "Tools given as a YAML list; docs specify a comma-separated string", SRC["vscode-agents"])
-rule("AG024", "warning", "auto", "AG", "copilot", "Copilot tools must be a YAML list", SRC["gh-agent-ref"])
+rule("AG024", "info", "auto", "AG", "copilot", "Copilot tools given as a comma-separated string (github.com accepts it; VS Code documents a YAML list)", SRC["gh-agent-ref"])
 rule("AG025", "error", "auto", "AG", "copilot", "Handoffs entry missing label or agent", SRC["vscode-agents"])
 rule("AG026", "warning", "auto", "AG", "both", "Boolean field has a non-boolean value", SRC["gh-agent-ref"])
 rule("AG027", "error", "auto", "AG", "claude", "Skills must be a YAML list of skill names", SRC["claude-subagents"])
@@ -138,7 +138,7 @@ rule("CF021", "error", "auto", "CF", "generic", "Marketplace entry missing name 
 rule("CF022", "info", "auto", "CF", "copilot", "Type sse is a legacy transport in Copilot CLI / MCP spec", SRC["cli-mcp"])
 
 # ---- XF: cross-file
-rule("XF001", "warning", "auto", "XF", "copilot", "Same skill name in more than one discovery directory (first-found-wins shadowing)", SRC["cli-ref"])
+rule("XF001", "warning", "auto", "XF", "copilot", "Same skill name in more than one discovery directory (which copy wins is undocumented)", SRC["gh-skills"])
 rule("XF002", "info", "auto", "XF", "both", "Same agent name in .github/agents and .claude/agents", SRC["cli-ref"])
 rule("XF003", "error", "auto", "XF", "both", "Dangling reference to an agent or skill", SRC["claude-subagents"])
 rule("XF004", "error", "auto", "XF", "claude", "Subagent preloads a skill that has disable-model-invocation: true", SRC["claude-subagents"])
