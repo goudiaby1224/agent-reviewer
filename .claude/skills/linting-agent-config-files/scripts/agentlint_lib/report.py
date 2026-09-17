@@ -27,6 +27,69 @@ def to_text(result: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+_SECTIONS = (("error", "Errors"), ("warning", "Warnings"), ("info", "Info and portability notes"))
+_GH_LEVEL = {"error": "error", "warning": "warning", "info": "notice"}
+
+
+def _scope_label(result: dict) -> str:
+    scope = result.get("scope") or {}
+    paths = ", ".join(scope.get("paths") or [])
+    if scope.get("changed_since"):
+        return "changed since %s" % scope["changed_since"] + (" within %s" % paths if paths else "")
+    return paths or "whole repository"
+
+
+def to_markdown(result: dict) -> str:
+    """The writing-review-findings report contract, without the manual Why/Fix judgement lines."""
+    s = result["summary"]
+    lines = ["# Agent configuration review",
+             "Scope: %s      Files scanned: %d      Linter: agentlint %s (%s)" % (
+                 _scope_label(result), len(result["files"]), result["agentlint_version"], result["yaml_parser"]),
+             "Errors: %d   Warnings: %d   Info: %d" % (s["error"], s["warning"], s["info"]), ""]
+    for severity, title in _SECTIONS:
+        lines.append("## " + title)
+        items = [f for f in result["findings"] if f["severity"] == severity]
+        if not items:
+            lines += ["- none", ""]
+            continue
+        current = None
+        for f in items:
+            if f["file"] != current:
+                current = f["file"]
+                lines.append("### " + current)
+            loc = "line %d" % f["line"] if f.get("line") else "file"
+            lines.append("- [%s] %s — %s" % (f["id"], loc, f["message"]))
+            tail = "  Source: %s" % f["source"]
+            if f.get("suggestion"):
+                tail += "  Fix: %s" % f["suggestion"]
+            lines.append(tail + "  Confidence: %s" % f["confidence"])
+        lines.append("")
+    lines.append("## Not checked")
+    lines += ["- %s" % nc for nc in result["not_checked"]] or ["- Nothing was skipped."]
+    return "\n".join(lines) + "\n"
+
+
+def _gh_escape(value: str, prop: bool = False) -> str:
+    value = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    if prop:
+        value = value.replace(":", "%3A").replace(",", "%2C")
+    return value
+
+
+def to_github(result: dict) -> str:
+    """GitHub Actions workflow commands: one annotation per finding, then the summary line."""
+    lines = []
+    for f in result["findings"]:
+        props = "file=%s" % _gh_escape(f["file"], prop=True)
+        if f.get("line"):
+            props += ",line=%d" % f["line"]
+        props += ",title=%s" % f["id"]
+        lines.append("::%s %s::%s" % (_GH_LEVEL[f["severity"]], props, _gh_escape(f["message"])))
+    s = result["summary"]
+    lines.append("errors: %d, warnings: %d, info: %d" % (s["error"], s["warning"], s["info"]))
+    return "\n".join(lines) + "\n"
+
+
 def catalogue_markdown() -> str:
     """Markdown catalogue, grouped by family, generated from the registry (kept in sync by a test)."""
     families = [("GN", "General file hygiene"), ("AG", "Agent definitions"), ("SK", "Skill files"),

@@ -33,6 +33,8 @@ Useful variants:
 - Giving PATH arguments narrows what is reported, not what names resolve against: a prompt's `agent` or a subagent's `skills` are still checked against the whole repository.
 - `--no-collisions` skips the cross-file (XF) checks when reviewing a single file in isolation.
 - `--kind mcp-copilot-cloud path/to/pasted.json` lints a file the tree does not contain, with the kind forced.
+- `--changed-since origin/main` lints only configuration files changed since that git ref (plus untracked files); names still resolve against the whole repository. Use it for pull requests.
+- `--format markdown` prints the findings in the report contract of `writing-review-findings` (without the manual Why and Fix judgements); `--format github` prints one GitHub Actions annotation per finding.
 - `--list-rules` prints the catalogue as text; `--list-rules --format markdown` regenerates `references/rule-catalogue.md`.
 
 ## Reading the output
