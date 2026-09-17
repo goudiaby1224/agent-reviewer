@@ -140,6 +140,23 @@ def _candidates(root: str, paths: List[str]) -> List[str]:
     return rels
 
 
+def changed_files(root: str, ref: str) -> List[str]:
+    """Root-relative paths of existing files changed since REF (committed, staged or unstaged) plus untracked files."""
+    def run(args):
+        return subprocess.run(["git", "-C", root] + args, capture_output=True, text=True, timeout=30)
+    try:
+        p = run(["diff", "--name-only", "-z", ref, "--"])
+    except (OSError, subprocess.SubprocessError) as e:
+        raise ValueError("git diff against %r failed: %s" % (ref, e))
+    if p.returncode != 0:
+        raise ValueError("git diff against %r failed: %s" % (ref, p.stderr.strip().split("\n")[0] or "not a git repository"))
+    rels = {x for x in p.stdout.split("\0") if x}
+    untracked = run(["ls-files", "-z", "--others", "--exclude-standard"])
+    if untracked.returncode == 0:
+        rels |= {x for x in untracked.stdout.split("\0") if x}
+    return sorted(r for r in rels if os.path.isfile(os.path.join(root, r)))
+
+
 def load(root: str, rel: str, kind: str) -> ConfigFile:
     cf = ConfigFile(path=rel, abs_path=os.path.join(root, rel), kind=kind)
     try:

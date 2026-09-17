@@ -14,6 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["text", "json", "markdown"], default="text")
     p.add_argument("--kind", choices=discover.KINDS, help="force a kind for the given paths")
     p.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="skip matching paths (repeatable)")
+    p.add_argument("--changed-since", metavar="REF", help="lint only configuration files changed since git REF")
     p.add_argument("--no-collisions", action="store_true", help="skip cross-file (XF) checks")
     p.add_argument("--min-severity", choices=SEVERITIES, default="info")
     p.add_argument("--list-rules", action="store_true", help="print the rule catalogue and exit")
@@ -36,7 +37,11 @@ def main(argv=None) -> int:
         sys.stderr.write("--format markdown is only valid with --list-rules\n")
         return 2
     try:
-        result = api.lint(args.root, args.paths, args.exclude, not args.no_collisions, args.min_severity, args.kind)
+        result = api.lint(args.root, args.paths, args.exclude, not args.no_collisions, args.min_severity, args.kind,
+                          changed_since=args.changed_since)
+    except ValueError as e:  # bad --changed-since ref or not a git repository
+        sys.stderr.write("agentlint: %s\n" % e)
+        return 2
     except Exception:  # internal failure: report and exit 2
         traceback.print_exc()
         return 2

@@ -9,8 +9,12 @@ def to_json(result: dict) -> str:
 
 
 def to_text(result: dict) -> str:
-    lines = ["agentlint %s  root=%s  yaml=%s  files=%d" % (
-        result["agentlint_version"], result["root"], result["yaml_parser"], len(result["files"]))]
+    head = "agentlint %s  root=%s  yaml=%s  files=%d" % (
+        result["agentlint_version"], result["root"], result["yaml_parser"], len(result["files"]))
+    scope = result.get("scope") or {}
+    if scope.get("changed_since"):
+        head += "  scope=changed-since %s" % scope["changed_since"]
+    lines = [head]
     for f in result["findings"]:
         loc = f["file"] + (":%d" % f["line"] if f.get("line") else "")
         lines.append("%-5s %s %s %s" % (f["severity"].upper(), f["id"], loc, f["message"]))
