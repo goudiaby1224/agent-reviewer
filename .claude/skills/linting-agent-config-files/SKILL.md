@@ -19,9 +19,9 @@ The linter is pure Python 3.8+ with no required dependencies. PyYAML is used whe
 - To lint a pasted config that is not in the tree (for example the cloud-agent MCP JSON) with `--kind`.
 
 ## Procedure
-1. From the repository root run
-   `python3 .claude/skills/linting-agent-config-files/scripts/agentlint.py --format json [PATH ...]`
-   With no PATH the linter discovers every configuration file under the root. Add `--exclude 'tests/fixtures/**'` for repositories that ship broken fixtures on purpose.
+1. From the repository root run the linter that ships with this skill:
+   `python3 <skill-dir>/scripts/agentlint.py --format json [PATH ...]`
+   where `<skill-dir>` is the directory this SKILL.md was loaded from: `${CLAUDE_SKILL_DIR}` in Claude Code, the path the skill was read from in Copilot, and `.claude/skills/linting-agent-config-files` in a plain clone of this repository. Pass `--root .` when the linter lives outside the repository (installed as a plugin). With no PATH the linter discovers every configuration file under the root. Add `--exclude 'tests/fixtures/**'` for repositories that ship broken fixtures on purpose.
 2. Read the header: `yaml_parser` is `pyyaml` or `builtin`; with `builtin`, treat findings on nested structures as medium confidence.
 3. Walk `findings`. Each has `id`, `title`, `severity`, `confidence`, `file`, `line`, `message`, `runtime`, `source`, `autofix_safe`, `suggestion`. `line` is `null` when the finding applies to the whole file.
 4. Copy `not_checked` verbatim into the final report.
@@ -33,6 +33,8 @@ Useful variants:
 - Giving PATH arguments narrows what is reported, not what names resolve against: a prompt's `agent` or a subagent's `skills` are still checked against the whole repository.
 - `--no-collisions` skips the cross-file (XF) checks when reviewing a single file in isolation.
 - `--kind mcp-copilot-cloud path/to/pasted.json` lints a file the tree does not contain, with the kind forced.
+- `--changed-since origin/main` lints only configuration files changed since that git ref (plus untracked files); names still resolve against the whole repository. Use it for pull requests.
+- `--format markdown` prints the findings in the report contract of `writing-review-findings` (without the manual Why and Fix judgements); `--format github` prints one GitHub Actions annotation per finding.
 - `--list-rules` prints the catalogue as text; `--list-rules --format markdown` regenerates `references/rule-catalogue.md`.
 
 ## Reading the output

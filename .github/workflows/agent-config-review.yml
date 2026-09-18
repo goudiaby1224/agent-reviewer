@@ -1,0 +1,76 @@
+name: Agent configuration review
+
+on:
+  pull_request:
+    paths:
+      - ".github/agents/**"
+      - ".github/instructions/**"
+      - ".github/prompts/**"
+      - ".github/copilot-instructions.md"
+      - ".github/mcp.json"
+      - ".github/plugin/**"
+      - ".github/workflows/copilot-setup-steps.yml"
+      - ".claude/**"
+      - ".claude-plugin/**"
+      - ".cursor/rules/**"
+      - ".vscode/mcp.json"
+      - ".mcp.json"
+      - "**/SKILL.md"
+      - "**/*.agent.md"
+      - "**/*.chatmode.md"
+      - "**/*.instructions.md"
+      - "**/*.prompt.md"
+      - "**/AGENTS.md"
+      - "**/AGENT.md"
+      - "**/CLAUDE.md"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  agentlint:
+    runs-on: ubuntu-latest
+    env:
+      # Set the repository variable AGENTLINT_PR_COMMENT to "true" to post a sticky comment with the report.
+      POST_COMMENT: ${{ vars.AGENTLINT_PR_COMMENT }}
+      LOCAL_LINTER: .claude/skills/linting-agent-config-files/scripts/agentlint.py
+      PLUGIN_REPO: https://github.com/goudiaby1224/agent-reviewer
+      PLUGIN_REF: main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Locate the linter
+        run: |
+          if [ -f "$LOCAL_LINTER" ]; then
+            echo "LINTER=$LOCAL_LINTER" >> "$GITHUB_ENV"
+          else
+            git clone --depth 1 --branch "$PLUGIN_REF" "$PLUGIN_REPO" /tmp/agent-reviewer
+            echo "LINTER=/tmp/agent-reviewer/$LOCAL_LINTER" >> "$GITHUB_ENV"
+          fi
+      - name: Report (job summary)
+        run: |
+          python3 "$LINTER" --root . --changed-since "origin/${{ github.base_ref }}" --exclude 'tests/fixtures/**' \
+            --format markdown > agentlint-report.md || true
+          cat agentlint-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Annotate and gate
+        run: |
+          python3 "$LINTER" --root . --changed-since "origin/${{ github.base_ref }}" --exclude 'tests/fixtures/**' --format github
+      - name: Post sticky comment
+        if: ${{ always() && env.POST_COMMENT == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          { echo "<!-- agent-skill-reviewer -->"; cat agentlint-report.md; } > comment.md
+          id=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+                --jq '.[] | select(.body | startswith("<!-- agent-skill-reviewer -->")) | .id' | head -n1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -F body=@comment.md > /dev/null
+          else
+            gh pr comment "$PR" --body-file comment.md
+          fi

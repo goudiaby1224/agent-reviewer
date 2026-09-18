@@ -36,6 +36,39 @@ Copilot discovers project skills in `.github/skills/`, `.agents/skills/` and `.c
 
 Ask for a review (`Use the agent-skill-reviewer subagent to review .claude/skills`) or let Claude delegate automatically after you create or change an agent, skill, instruction or MCP file. The subagent preloads `linting-agent-config-files` and `writing-review-findings` and loads the other five skills by name as needed. Its `tools` are `Read, Grep, Glob, Bash`; the body forbids editing.
 
+## Install as a plugin
+
+The repository doubles as a plugin for both runtimes; nothing is duplicated, the manifests point at the directories above.
+
+Copilot CLI (manifest `.github/plugin/plugin.json`, marketplace `.github/plugin/marketplace.json`):
+
+```
+copilot plugin marketplace add goudiaby1224/agent-reviewer
+copilot plugin install agent-reviewer@agent-reviewer
+```
+
+`copilot plugin install goudiaby1224/agent-reviewer` also works today, but the CLI warns that direct installs are deprecated in favour of `plugin@marketplace`.
+
+Claude Code (manifest `.claude-plugin/plugin.json`, marketplace `.claude-plugin/marketplace.json`):
+
+```
+/plugin marketplace add goudiaby1224/agent-reviewer
+/plugin install agent-reviewer@agent-reviewer
+```
+
+Both runtimes namespace the plugin's components: the agent is `agent-reviewer:agent-skill-reviewer` in Claude Code and in Copilot CLI (`--agent agent-skill-reviewer` is rejected with `No such agent`), and the Claude Code skills are `/agent-reviewer:linting-agent-config-files` and so on. For local development skip the install in either runtime: `claude --plugin-dir .` and `copilot --plugin-dir <abs-path-to-repo>` load the manifests straight from the working tree. A repository that already contains these files keeps its own copies alongside the namespaced ones.
+
+Manifest notes: Claude Code's `agents` field lists agent files, not directories (`["./.claude/agents/agent-skill-reviewer.md"]`), while its `skills` field accepts the directory; Copilot's fields take directories without a `./` prefix.
+
+`copilot plugin list` names the plugin and its version, not its components; there is no `--kind` flag. To see what a plugin contributes, ask the CLI (`copilot -p "List the custom agents and skills available"`) or try the namespaced agent directly.
+
+## Reviewing a pull request
+
+- Claude Code: `Use the agent-skill-reviewer subagent to review pull request 42` (a URL works too), or just ask for a review on a branch that has an open PR. Add `and post the report as a comment` to have it post; it keeps one sticky comment per PR and never approves or requests changes.
+- github.com: assign `agent-skill-reviewer` to the pull request; the report is its reply.
+- GitHub Actions: `.github/workflows/agent-config-review.yml` runs the linter with `--changed-since origin/<base>` on every PR that touches agent-configuration files, writes the report to the job summary, annotates the diff, and fails on errors (warnings do not fail it). Set the repository variable `AGENTLINT_PR_COMMENT` to `true` to also post the report as a sticky comment.
+- Any shell: `python3 .claude/skills/linting-agent-config-files/scripts/agentlint.py --changed-since origin/main --format markdown`.
+
 ## Running the linter alone
 
 ```
@@ -55,6 +88,8 @@ Exit code 0 means no error-level findings, 1 at least one error, 2 a usage or in
 ## Copying into another repository
 
 Copy `.github/agents/`, `.github/prompts/`, `.claude/agents/` and `.claude/skills/`. Copilot code review reads skills only from `.github/skills/`; if you want that surface too, copy `.claude/skills/` to `.github/skills/` as well and accept the XF001 note the linter will raise about the duplicate.
+
+Copy `.github/workflows/agent-config-review.yml` as well; it uses the repository's own linter when present and otherwise clones this repository at `PLUGIN_REF` to borrow it.
 
 ## Adding a rule
 
@@ -120,6 +155,13 @@ Expected: the green run cites rule IDs such as `SK004`, `CF002` and `AG008` with
 
 The subagent is discovered by Claude Code: after the agent file was created, this session's tool list gained an `agent-skill-reviewer` agent type with tools `Read, Grep, Glob, Bash`, and the seven skills appeared as loadable skills.
 
+The green half of this check was completed on 2026-09-18 through the plugin run below; the red run (skills tree moved aside) is still pending.
+
+
+### Plugin installs (2026-09-18)
+
+- Claude Code 2.1.276, `claude --plugin-dir . -p "Use the agent-reviewer:agent-skill-reviewer subagent to review tests/fixtures/good ..."`: passed. The namespaced subagent resolved, preloaded `linting-agent-config-files` and `writing-review-findings` by their bare names (so no `skills:` fallback is needed inside a plugin), ran the linter, and reported `XF002`, `AG012` and `IN016` with source URLs and a "Not checked" section.
+- Copilot CLI 1.0.85, `copilot --plugin-dir <repo> --agent agent-reviewer:agent-skill-reviewer -p "Review tests/fixtures/good ..."`: passed with one caveat. `copilot plugin list` showed `agent-reviewer (v1.1.0)` under "External Plugins"; the agent loaded all seven skills and cited `XF002`, `AG012` and `IN016`. The bare name `agent-skill-reviewer` was rejected (`No such agent ..., available: agent-reviewer:agent-skill-reviewer`), so Copilot namespaces plugin agents just as Claude Code does. Shell execution was denied in that non-interactive run despite `--allow-all-tools`, so the agent fell back to applying the auto rules by hand and marked those findings medium confidence — the fallback path works, but the linter itself was not exercised through the Copilot plugin.
 
 ## Unresolved questions
 

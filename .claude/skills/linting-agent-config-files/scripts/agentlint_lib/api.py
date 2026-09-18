@@ -49,16 +49,23 @@ def resolve_root(root: Optional[str]) -> str:
 
 
 def lint(root: Optional[str], paths: List[str], excludes: List[str], collisions: bool = True,
-         min_severity: str = "info", force_kind: Optional[str] = None) -> dict:
+         min_severity: str = "info", force_kind: Optional[str] = None,
+         changed_since: Optional[str] = None) -> dict:
     _load_rule_modules()
     root = resolve_root(root)
-    files = discover.discover(root, paths, excludes, force_kind)
-    # Explicit paths narrow what is reported, not what names resolve against: agents, skills and
-    # prompts elsewhere in the repository still count when checking references from the scoped files.
+    discovered = discover.discover(root, paths, excludes, force_kind)
+    files = discovered
+    if changed_since:
+        changed = set(discover.changed_files(root, changed_since))  # ValueError -> exit 2 in the CLI
+        files = [f for f in discovered if f.path in changed]
+    # Explicit paths and --changed-since narrow what is reported, not what names resolve against: agents,
+    # skills and prompts elsewhere in the repository still count when checking references from scoped files.
     universe = files
     if paths:
         in_scope = {f.path for f in files}
         universe = files + [f for f in discover.discover(root, [], excludes, None) if f.path not in in_scope]
+    elif changed_since:
+        universe = discovered
     ctx = Context(root=root, files=universe, yaml_parser=yamlfm.parser_name())
     findings: List[Finding] = []
     for cf in files:
@@ -83,6 +90,7 @@ def lint(root: Optional[str], paths: List[str], excludes: List[str], collisions:
     return {
         "agentlint_version": __version__,
         "root": root,
+        "scope": {"paths": list(paths), "changed_since": changed_since},
         "python": platform.python_version(),
         "yaml_parser": ctx.yaml_parser,
         "files": [{"path": f.path, "kind": f.kind} for f in files],

@@ -3314,4 +3314,6 @@ Deltas introduced while executing Tasks 0, 8 and 10 on 2026-09-04, after fetchin
 - Explicit PATH arguments narrow what the linter reports, not what names resolve against.
 - `sub/.vscode/mcp.json` in the bad fixture also carries an `sse` server so CF022 has a fixture.
 
+- Plugin packaging and pull-request review are specified in `docs/superpowers/specs/2026-09-14-plugin-packaging-and-pr-review-design.md` and planned in `docs/superpowers/plans/2026-09-17-plugin-packaging-and-pr-review.md`.
+
 ---

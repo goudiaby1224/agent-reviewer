@@ -1,0 +1,13 @@
+{
+  "name": "agent-reviewer",
+  "owner": {"name": "Noel Goudiaby", "url": "https://github.com/goudiaby1224"},
+  "metadata": {"description": "Marketplace for the agent-reviewer plugin", "version": "1.0.0"},
+  "plugins": [
+    {
+      "name": "agent-reviewer",
+      "source": "./",
+      "description": "Agent and skill configuration reviewer for Copilot and Claude Code",
+      "version": "1.1.0"
+    }
+  ]
+}
