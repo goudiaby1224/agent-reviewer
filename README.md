@@ -155,13 +155,24 @@ Expected: the green run cites rule IDs such as `SK004`, `CF002` and `AG008` with
 
 The subagent is discovered by Claude Code: after the agent file was created, this session's tool list gained an `agent-skill-reviewer` agent type with tools `Read, Grep, Glob, Bash`, and the seven skills appeared as loadable skills.
 
-The green half of this check was completed on 2026-09-18 through the plugin run below; the red run (skills tree moved aside) is still pending.
+Both halves were run on 2026-09-18; see "Behavioural check, green and red (2026-09-18)" below. The red method above does not work in a git repository — do not rely on it.
 
+
+### Behavioural check, green and red (2026-09-18, Claude Code 2.1.276)
+
+Same prompt both times, `claude -p "Use the agent-skill-reviewer subagent to review tests/fixtures/bad. Wait for it to finish, then paste its report verbatim." --allowedTools "Agent,Read,Grep,Glob,Bash(python3:*)" --output-format json`.
+
+- **Green (skills present): pass.** 96 distinct rule IDs across all six families, `Errors: 44  Warnings: 37  Info: 20`, every finding carrying a source URL, and a populated "Not checked" section. Header: `Files scanned: 49 ... Linter: agentlint 1.0.0 (pyyaml)`.
+- **Red (`.claude/skills` moved aside): inconclusive, not a pass and not a failure.** The run produced the same 96 rule IDs and an equally well-formed report, because the subagent noticed the deletion and recovered the skills from git instead of doing without them. Its own "Not checked" section says so: "The working tree shows every file under `.claude/skills/` as deleted and not committed. The linter and all review skills were loaded read-only from commit 2030145 (HEAD) through an in-memory importer. No files were restored or changed." `git status` was clean afterwards, and the restore was verified.
+
+The lesson is about the method, not the agent: `Bash(python3:*)` is arbitrary code execution, so moving files aside hides nothing that is committed. A valid red run needs the skills to be unreachable rather than merely unlinked — lint a copy of the repository with `.git` removed and `.claude/skills` deleted, or grant no `Bash` at all so the linter cannot run by any path. Until that is done, the claim "the skills are doing the work, not the model's priors" remains unproven for Claude Code.
+
+The red run also surfaced two real defects in the shipped linter, reported under "Not checked" and not yet fixed: in `rules_xf.py`, `for s in f.fm.get("skills") or []` iterates a string character by character when `skills` is a scalar, producing 11 spurious XF003 findings, and the `paths` loop for `.claude/rules` has the same bug behind an XF006 note. Both need an `isinstance(..., list)` guard, and no test covers either. Separately, relative PATH arguments resolve against `--root`, so `agentlint.py --root tests/fixtures/bad tests/fixtures/bad/cloud-mcp.json` lints nothing and exits 0 without warning.
 
 ### Plugin installs (2026-09-18)
 
 - Claude Code 2.1.276, `claude --plugin-dir . -p "Use the agent-reviewer:agent-skill-reviewer subagent to review tests/fixtures/good ..."`: passed. The namespaced subagent resolved, preloaded `linting-agent-config-files` and `writing-review-findings` by their bare names (so no `skills:` fallback is needed inside a plugin), ran the linter, and reported `XF002`, `AG012` and `IN016` with source URLs and a "Not checked" section.
-- Copilot CLI 1.0.85, `copilot --plugin-dir <repo> --agent agent-reviewer:agent-skill-reviewer -p "Review tests/fixtures/good ..."`: passed with one caveat. `copilot plugin list` showed `agent-reviewer (v1.1.0)` under "External Plugins"; the agent loaded all seven skills and cited `XF002`, `AG012` and `IN016`. The bare name `agent-skill-reviewer` was rejected (`No such agent ..., available: agent-reviewer:agent-skill-reviewer`), so Copilot namespaces plugin agents just as Claude Code does. Shell execution was denied in that non-interactive run despite `--allow-all-tools`, so the agent fell back to applying the auto rules by hand and marked those findings medium confidence — the fallback path works, but the linter itself was not exercised through the Copilot plugin.
+- Copilot CLI 1.0.85, `copilot --plugin-dir <repo> --agent agent-reviewer:agent-skill-reviewer -p "Review tests/fixtures/good ..."`: passed with one caveat. `copilot plugin list` showed `agent-reviewer (v1.1.0)` under "External Plugins"; the agent loaded all seven skills and cited `XF002`, `AG012` and `IN016`. The bare name `agent-skill-reviewer` was rejected (`No such agent ..., available: agent-reviewer:agent-skill-reviewer`), so Copilot namespaces plugin agents just as Claude Code does. Shell execution was denied in the first attempt, which ran from a scratch directory while pointing at paths inside the repository, so the agent fell back to applying the auto rules by hand (that fallback path is therefore verified too). Re-running from the repository root with `copilot --plugin-dir .` fixed it: agentlint executed normally (`python3` with PyYAML, exit 0, both a scoped run and `--root tests/fixtures/good`) and the report header read `Linter: agentlint 1.0.0 (pyyaml)`. The denial was the working directory, not the agent's `execute` grant.
 
 ## Unresolved questions
 
