@@ -10,3 +10,6 @@ class SelfReviewTests(unittest.TestCase):
         self.assertEqual(r["summary"]["warning"], 0, r["findings"])
         kinds = {f["kind"] for f in r["files"]}
         self.assertTrue({"copilot-agent", "claude-subagent", "skill", "prompt-file"} <= kinds, kinds)
+        self.assertTrue({"plugin-manifest", "marketplace-manifest"} <= kinds, kinds)
+        paths = {f["path"] for f in r["files"]}
+        self.assertTrue({".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", ".github/plugin/plugin.json"} <= paths)

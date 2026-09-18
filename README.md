@@ -36,6 +36,30 @@ Copilot discovers project skills in `.github/skills/`, `.agents/skills/` and `.c
 
 Ask for a review (`Use the agent-skill-reviewer subagent to review .claude/skills`) or let Claude delegate automatically after you create or change an agent, skill, instruction or MCP file. The subagent preloads `linting-agent-config-files` and `writing-review-findings` and loads the other five skills by name as needed. Its `tools` are `Read, Grep, Glob, Bash`; the body forbids editing.
 
+## Install as a plugin
+
+The repository doubles as a plugin for both runtimes; nothing is duplicated, the manifests point at the directories above.
+
+Copilot CLI (manifest `.github/plugin/plugin.json`, marketplace `.github/plugin/marketplace.json`):
+
+```
+copilot plugin marketplace add goudiaby1224/agent-reviewer
+copilot plugin install agent-reviewer@agent-reviewer
+```
+
+`copilot plugin install goudiaby1224/agent-reviewer` also works today, but the CLI warns that direct installs are deprecated in favour of `plugin@marketplace`.
+
+Claude Code (manifest `.claude-plugin/plugin.json`, marketplace `.claude-plugin/marketplace.json`):
+
+```
+/plugin marketplace add goudiaby1224/agent-reviewer
+/plugin install agent-reviewer@agent-reviewer
+```
+
+Inside the Claude Code plugin the agent is `agent-reviewer:agent-skill-reviewer` and the skills are `/agent-reviewer:linting-agent-config-files` and so on. For local development use `claude --plugin-dir .`, or `copilot plugin marketplace add ./` followed by the install command. A repository that already contains these files keeps its own copies: Copilot ignores the plugin's duplicates (first found wins), Claude Code namespaces them.
+
+Manifest notes: Claude Code's `agents` field lists agent files, not directories (`["./.claude/agents/agent-skill-reviewer.md"]`), while its `skills` field accepts the directory; Copilot's fields take directories without a `./` prefix.
+
 ## Running the linter alone
 
 ```

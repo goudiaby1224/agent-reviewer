@@ -1,0 +1,23 @@
+{
+  "name": "agent-reviewer",
+  "version": "1.1.0",
+  "description": "Reviews AI-agent configuration files (agents, skills, instructions, prompts, MCP, hooks, plugins) with a deterministic linter plus documented manual rules, and returns a findings report without editing anything.",
+  "author": {
+    "name": "Noel Goudiaby",
+    "url": "https://github.com/goudiaby1224"
+  },
+  "repository": "https://github.com/goudiaby1224/agent-reviewer",
+  "license": "MIT",
+  "keywords": [
+    "review",
+    "lint",
+    "agents",
+    "skills",
+    "copilot",
+    "claude-code"
+  ],
+  "agents": [
+    "./.claude/agents/agent-skill-reviewer.md"
+  ],
+  "skills": "./.claude/skills"
+}

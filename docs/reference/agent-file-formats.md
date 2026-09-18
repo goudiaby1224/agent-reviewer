@@ -28,6 +28,7 @@ Surface abbreviations: GH = github.com Copilot cloud agent and code review, VSC 
 | Claude hooks | `.claude/settings.json`, `.claude/settings.local.json`, `~/.claude/settings.json`, plugin `hooks/hooks.json`, skill and subagent frontmatter | no | reads `.claude/settings.json` hooks with its own semantics | no | yes | Claude Code hooks |
 | Claude plugin manifests | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | no | no | accepted as one of four lookup paths | yes | Claude Code plugins |
 | Copilot CLI plugin manifests | `.plugin/plugin.json`, `plugin.json`, `.github/plugin/plugin.json`, `.claude-plugin/plugin.json`; `marketplace.json` in the same four places | no | no | yes | no | Copilot CLI plugins |
+| This repository's plugin manifests | `.claude-plugin/plugin.json` lists `agents` as agent file paths (`./.claude/agents/agent-skill-reviewer.md`; a directory fails `claude plugin validate`) and `skills` as `./.claude/skills`; `.github/plugin/plugin.json` points at `.github/agents` and `.claude/skills`; both trees carry a one-entry `marketplace.json` | no | no | yes | yes | Claude Code plugins, Copilot CLI plugins |
 
 ## Copilot custom agent (`.agent.md`)
 Sources (fetched 2026-09-04):
