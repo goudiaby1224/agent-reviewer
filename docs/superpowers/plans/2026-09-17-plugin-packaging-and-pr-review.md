@@ -33,6 +33,12 @@
 - Task 3: `claude plugin validate` rejects a directory in `agents`; the field takes agent file paths (`["./.claude/agents/agent-skill-reviewer.md"]`). `skills` accepts the directory.
 - Task 3: Copilot CLI 1.0.80 warns that direct installs are deprecated, so `.github/plugin/marketplace.json` was added and the documented install is `copilot plugin marketplace add` plus `copilot plugin install agent-reviewer@agent-reviewer`. `copilot plugin list` has no `--kind` flag in 1.0.80; components were verified with a `copilot -p` prompt from another directory.
 - Task 4: SK007 resolves body paths against the skill's own directory, so the planned false-positive bullet naming `references/rule-catalogue.md` (a file of `linting-agent-config-files`) raised an error on the new skill. The bullet now names the catalogue without a relative path.
+- Task 5: the dry-run was done on the feature branch with the scratch agent file left untracked; the plan's cleanup line (`git checkout main`) would have left the session on `main`.
+- Task 6: the installed runtimes are Claude Code 2.1.276 and Copilot CLI 1.0.85, not the 2.1.260/1.0.80 the plan names.
+- Task 6: `claude -p ... --output-format text` returned a one-line remark about a background task notification instead of the report; rerunning with `--output-format json` and "wait for it to finish, then paste its report verbatim" produced the review.
+- Task 6: no install was needed on either side. `copilot --plugin-dir <abs repo path>` loads the plugin the same way `claude --plugin-dir .` does, so the user's Copilot configuration was left untouched.
+- Task 6: Copilot CLI 1.0.85 namespaces plugin agents exactly like Claude Code — `--agent agent-skill-reviewer` fails with `No such agent ..., available: agent-reviewer:agent-skill-reviewer`. The README sentence written in Task 3 ("Copilot ignores the plugin's duplicates, first found wins") was wrong and has been corrected.
+- Task 6: Copilot denied shell execution in the non-interactive run despite `--allow-all-tools`, so the agent took the linting skill's manual fallback. That path is now verified, but agentlint itself has not been run through the Copilot plugin.
 
 ## File structure
 

@@ -56,9 +56,11 @@ Claude Code (manifest `.claude-plugin/plugin.json`, marketplace `.claude-plugin/
 /plugin install agent-reviewer@agent-reviewer
 ```
 
-Inside the Claude Code plugin the agent is `agent-reviewer:agent-skill-reviewer` and the skills are `/agent-reviewer:linting-agent-config-files` and so on. For local development use `claude --plugin-dir .`, or `copilot plugin marketplace add ./` followed by the install command. A repository that already contains these files keeps its own copies: Copilot ignores the plugin's duplicates (first found wins), Claude Code namespaces them.
+Both runtimes namespace the plugin's components: the agent is `agent-reviewer:agent-skill-reviewer` in Claude Code and in Copilot CLI (`--agent agent-skill-reviewer` is rejected with `No such agent`), and the Claude Code skills are `/agent-reviewer:linting-agent-config-files` and so on. For local development skip the install in either runtime: `claude --plugin-dir .` and `copilot --plugin-dir <abs-path-to-repo>` load the manifests straight from the working tree. A repository that already contains these files keeps its own copies alongside the namespaced ones.
 
 Manifest notes: Claude Code's `agents` field lists agent files, not directories (`["./.claude/agents/agent-skill-reviewer.md"]`), while its `skills` field accepts the directory; Copilot's fields take directories without a `./` prefix.
+
+`copilot plugin list` names the plugin and its version, not its components; there is no `--kind` flag. To see what a plugin contributes, ask the CLI (`copilot -p "List the custom agents and skills available"`) or try the namespaced agent directly.
 
 ## Reviewing a pull request
 
@@ -153,6 +155,13 @@ Expected: the green run cites rule IDs such as `SK004`, `CF002` and `AG008` with
 
 The subagent is discovered by Claude Code: after the agent file was created, this session's tool list gained an `agent-skill-reviewer` agent type with tools `Read, Grep, Glob, Bash`, and the seven skills appeared as loadable skills.
 
+The green half of this check was completed on 2026-09-18 through the plugin run below; the red run (skills tree moved aside) is still pending.
+
+
+### Plugin installs (2026-09-18)
+
+- Claude Code 2.1.276, `claude --plugin-dir . -p "Use the agent-reviewer:agent-skill-reviewer subagent to review tests/fixtures/good ..."`: passed. The namespaced subagent resolved, preloaded `linting-agent-config-files` and `writing-review-findings` by their bare names (so no `skills:` fallback is needed inside a plugin), ran the linter, and reported `XF002`, `AG012` and `IN016` with source URLs and a "Not checked" section.
+- Copilot CLI 1.0.85, `copilot --plugin-dir <repo> --agent agent-reviewer:agent-skill-reviewer -p "Review tests/fixtures/good ..."`: passed with one caveat. `copilot plugin list` showed `agent-reviewer (v1.1.0)` under "External Plugins"; the agent loaded all seven skills and cited `XF002`, `AG012` and `IN016`. The bare name `agent-skill-reviewer` was rejected (`No such agent ..., available: agent-reviewer:agent-skill-reviewer`), so Copilot namespaces plugin agents just as Claude Code does. Shell execution was denied in that non-interactive run despite `--allow-all-tools`, so the agent fell back to applying the auto rules by hand and marked those findings medium confidence — the fallback path works, but the linter itself was not exercised through the Copilot plugin.
 
 ## Unresolved questions
 
