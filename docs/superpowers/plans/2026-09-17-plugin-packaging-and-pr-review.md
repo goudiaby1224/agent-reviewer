@@ -32,6 +32,7 @@
 
 - Task 3: `claude plugin validate` rejects a directory in `agents`; the field takes agent file paths (`["./.claude/agents/agent-skill-reviewer.md"]`). `skills` accepts the directory.
 - Task 3: Copilot CLI 1.0.80 warns that direct installs are deprecated, so `.github/plugin/marketplace.json` was added and the documented install is `copilot plugin marketplace add` plus `copilot plugin install agent-reviewer@agent-reviewer`. `copilot plugin list` has no `--kind` flag in 1.0.80; components were verified with a `copilot -p` prompt from another directory.
+- Task 4: SK007 resolves body paths against the skill's own directory, so the planned false-positive bullet naming `references/rule-catalogue.md` (a file of `linting-agent-config-files`) raised an error on the new skill. The bullet now names the catalogue without a relative path.
 
 ## File structure
 

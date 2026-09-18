@@ -19,9 +19,9 @@ The linter is pure Python 3.8+ with no required dependencies. PyYAML is used whe
 - To lint a pasted config that is not in the tree (for example the cloud-agent MCP JSON) with `--kind`.
 
 ## Procedure
-1. From the repository root run
-   `python3 .claude/skills/linting-agent-config-files/scripts/agentlint.py --format json [PATH ...]`
-   With no PATH the linter discovers every configuration file under the root. Add `--exclude 'tests/fixtures/**'` for repositories that ship broken fixtures on purpose.
+1. From the repository root run the linter that ships with this skill:
+   `python3 <skill-dir>/scripts/agentlint.py --format json [PATH ...]`
+   where `<skill-dir>` is the directory this SKILL.md was loaded from: `${CLAUDE_SKILL_DIR}` in Claude Code, the path the skill was read from in Copilot, and `.claude/skills/linting-agent-config-files` in a plain clone of this repository. Pass `--root .` when the linter lives outside the repository (installed as a plugin). With no PATH the linter discovers every configuration file under the root. Add `--exclude 'tests/fixtures/**'` for repositories that ship broken fixtures on purpose.
 2. Read the header: `yaml_parser` is `pyyaml` or `builtin`; with `builtin`, treat findings on nested structures as medium confidence.
 3. Walk `findings`. Each has `id`, `title`, `severity`, `confidence`, `file`, `line`, `message`, `runtime`, `source`, `autofix_safe`, `suggestion`. `line` is `null` when the finding applies to the whole file.
 4. Copy `not_checked` verbatim into the final report.

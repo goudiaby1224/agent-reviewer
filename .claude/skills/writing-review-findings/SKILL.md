@@ -26,7 +26,7 @@ The reviewer never edits files. The report describes what is wrong, why it matte
 5. Group by severity (Errors, Warnings, Info and portability notes), then by file in path order, then by line.
 6. Write each finding as: `- [ID] line N — message`, then indented `Why:` with the source URL, then `Fix:` with the confidence. Whole-file findings say `file` instead of `line N`.
 7. Write the "Not checked" section: copy the linter's `not_checked` entries, add anything the review skipped (unfetchable sources, unreadable files, unresolved documentation questions) and why. When nothing was skipped, write `Nothing was skipped.`
-8. Fill the header: scope, number of files scanned, linter version and YAML parser (or `manual fallback`), and the three counts. The counts must equal the number of bullets in each section.
+8. Fill the header: scope, number of files scanned, linter version and YAML parser (or `manual fallback`), and the three counts. The counts must equal the number of bullets in each section. For a pull request the scope reads `PR #N (<k> configuration files of <m> changed)` and "Not checked" names the reviewed commit.
 
 ## Severity and confidence taxonomy
 | Severity | Meaning | Examples |
