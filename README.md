@@ -60,6 +60,13 @@ Inside the Claude Code plugin the agent is `agent-reviewer:agent-skill-reviewer`
 
 Manifest notes: Claude Code's `agents` field lists agent files, not directories (`["./.claude/agents/agent-skill-reviewer.md"]`), while its `skills` field accepts the directory; Copilot's fields take directories without a `./` prefix.
 
+## Reviewing a pull request
+
+- Claude Code: `Use the agent-skill-reviewer subagent to review pull request 42` (a URL works too), or just ask for a review on a branch that has an open PR. Add `and post the report as a comment` to have it post; it keeps one sticky comment per PR and never approves or requests changes.
+- github.com: assign `agent-skill-reviewer` to the pull request; the report is its reply.
+- GitHub Actions: `.github/workflows/agent-config-review.yml` runs the linter with `--changed-since origin/<base>` on every PR that touches agent-configuration files, writes the report to the job summary, annotates the diff, and fails on errors (warnings do not fail it). Set the repository variable `AGENTLINT_PR_COMMENT` to `true` to also post the report as a sticky comment.
+- Any shell: `python3 .claude/skills/linting-agent-config-files/scripts/agentlint.py --changed-since origin/main --format markdown`.
+
 ## Running the linter alone
 
 ```
@@ -79,6 +86,8 @@ Exit code 0 means no error-level findings, 1 at least one error, 2 a usage or in
 ## Copying into another repository
 
 Copy `.github/agents/`, `.github/prompts/`, `.claude/agents/` and `.claude/skills/`. Copilot code review reads skills only from `.github/skills/`; if you want that surface too, copy `.claude/skills/` to `.github/skills/` as well and accept the XF001 note the linter will raise about the duplicate.
+
+Copy `.github/workflows/agent-config-review.yml` as well; it uses the repository's own linter when present and otherwise clones this repository at `PLUGIN_REF` to borrow it.
 
 ## Adding a rule
 
