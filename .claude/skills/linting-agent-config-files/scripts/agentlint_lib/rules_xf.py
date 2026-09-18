@@ -53,7 +53,8 @@ def check(ctx: Context) -> List[Finding]:
     disabled = {n for n, fs in by_skill.items() if any(f.fm.get("disable-model-invocation") is True for f in fs)}
     for f in agents:
         if f.kind == "claude-subagent":
-            for s in f.fm.get("skills") or []:
+            preloads = f.fm.get("skills")
+            for s in preloads if isinstance(preloads, list) else []:
                 if not isinstance(s, str):
                     continue
                 if s not in skill_names:
@@ -77,7 +78,9 @@ def check(ctx: Context) -> List[Finding]:
         if isinstance(a, str):
             globs += [(g.strip(), f.path) for g in a.split(",") if g.strip()]
     for f in ctx.by_kind("claude-rule"):
-        globs += [(g.strip(), f.path) for g in (f.fm.get("paths") or []) if isinstance(g, str)]
+        rule_paths = f.fm.get("paths")
+        globs += [(g.strip(), f.path) for g in (rule_paths if isinstance(rule_paths, list) else [])
+                  if isinstance(g, str)]
     reported = set()
     for i, (g1, p1) in enumerate(globs):
         for g2, p2 in globs[i + 1:]:

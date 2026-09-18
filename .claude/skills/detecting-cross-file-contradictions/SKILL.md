@@ -45,6 +45,8 @@ For agents, `.github/agents/` wins over `.claude/agents/` on Copilot surfaces; C
 
 Body text that names a skill or agent in prose is not resolved by the linter; that is AG021 in `reviewing-agent-definitions`.
 
+A `skills` or `paths` value written as a scalar string instead of a YAML list is reported as AG027 (or the matching per-kind rule) and skipped here, so one malformed key yields one finding rather than one per character.
+
 ## Rules
 | ID | Severity | Tag | Check | How to judge (manual) / What the linter checked (auto) | Source |
 |---|---|---|---|---|---|
@@ -62,6 +64,7 @@ Body text that names a skill or agent in prose is not resolved by the linter; th
 ## Common false positives
 - XF001 when the copies are byte-identical and deliberately mirrored for Copilot code review (which reads only `.github/skills`): keep as info with that context.
 - XF006 between a repository-wide `**` file and narrower path files: overlap is expected; report only if the two files disagree.
+- XF003 or XF006 naming a single character (`'a'`, `'s'`): the source key is a scalar string, not a list. The linter stopped generating these in 2026-09; on an older copy, report the malformed key once and ignore the per-character findings.
 - XF007 between a general rule and a scoped exception that names its scope ("in `tests/`, skip the linter").
 - XF008 between a general skill and a specialised one whose description explicitly says "instead of <general skill> when ...".
 - XF010 when the two files serve different tools on purpose and a comment in each says so: info, not warning.
